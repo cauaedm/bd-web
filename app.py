@@ -1,37 +1,27 @@
 import pandas as pd
 import streamlit as st
+import pymysql
 
-# Simular um DataFrame com URLs de imagens de pessoas e casas
-data = {
-    "host": ["João", "Maria", "Carlos", "Ana"],
-    "local": ["Rio de Janeiro", "São Paulo", "Curitiba", "Paris"],
-    "nota": [4.5, 4.8, 4.2, 4.9],
-    "preço": ["R$200", "R$150", "R$100", "€300"],
-    "imagem_host": [
-        "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400",
-        "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400",
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400"
-    ],
-    "imagem_casa": [
-        "https://demo-source.imgix.net/house.jpg",  # Casa 1
-        "https://demo-source.imgix.net/house.jpg",  # Casa 2
-        "https://demo-source.imgix.net/house.jpg",  # Casa 3
-        "https://demo-source.imgix.net/house.jpg"   # Casa 4
-    ]
-}
-df = pd.DataFrame(data)
+from consultas import filter_nota
+from consultas import feed_query
+from consultas import filter_preco
 
-# Limpar o campo 'preço' para valores numéricos
-df['preço_numérico'] = df['preço'].replace({'R\$': '', '€': '', ',': ''}, regex=True).astype(float)
+# Conexão com o banco de dados
+conn = pymysql.connect(
+    host='localhost',
+    user='root',
+    password='123456',
+    database='airbnb'
+)
 
+# Consulta SQL inicial (sem o JOIN)
+df = feed_query(conn)
+
+# Configuração das abas do Streamlit
 tab = st.radio("Escolha uma aba", ["Feed", "Analytics"], index=0, horizontal=True)
-
-# Exibindo o conteúdo das abas
 
 # Aba Feed
 if tab == "Feed":
-    # Configuração da página
     st.title("Feed")
 
     # Filtros de pesquisa
@@ -42,19 +32,31 @@ if tab == "Feed":
 
     # Filtro para nota
     nota_filter = st.slider("Escolha a nota mínima", 0.0, 5.0, 0.0)
+    
+    preco_min = float(df['preço'].min())
+    preco_max = float(df['preço'].max())
 
-    # Filtro para preço com valores numéricos
-    preço_filter_min = st.slider("Escolha o preço mínimo", float(df['preço_numérico'].min()), float(df['preço_numérico'].max()), float(df['preço_numérico'].mean()))
+    # Filtro para preço
+    preco_filter = st.slider("Escolha o preço máximo", preco_min, preco_max, preco_max)
 
-    # Filtrar o DataFrame com base nas escolhas
+
+    # Filtrando o DataFrame com base nos filtros
     filtered_df = df
+    
     if local_filter != "Todos":
         filtered_df = filtered_df[filtered_df['local'] == local_filter]
-    if nota_filter > 0:
-        filtered_df = filtered_df[filtered_df['nota'] >= nota_filter]
-    filtered_df = filtered_df[filtered_df['preço_numérico'] >= preço_filter_min]
 
-    # CSS para estilizar as caixas
+    # Se a nota for maior que 0, usamos o filter_nota para pegar os IDs filtrados
+    if nota_filter > 0.0:
+        ids_filtrados_nota = filter_nota(nota_filter, conn)
+        filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_nota['ID_Postagem'])]
+
+    # Se o preço for maior que o mínimo, usamos o filter_preco para pegar os IDs filtrados
+    if preco_filter < preco_max:
+        ids_filtrados_preco = filter_preco(preco_filter, conn)
+        filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_preco['ID_Postagem'])]
+
+    # CSS para estilização
     st.markdown(
         """
         <style>
@@ -98,12 +100,11 @@ if tab == "Feed":
     if filtered_df.empty:
         st.write("Nenhuma publicação encontrada para os filtros selecionados.")
     else:
-        # Criar uma caixa para cada linha do DataFrame filtrado
+        # Exibindo cada publicação
         for _, row in filtered_df.iterrows():
             st.markdown(
                 f"""
                 <div class="div-box">
-                    <img src="{row['imagem_host']}" alt="Foto do Host" class="host-img">
                     <div class="info">
                         <h3>Postagem</h3>
                         <p><strong>Host:</strong> {row['host']}</p>

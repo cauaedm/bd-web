@@ -1,25 +1,53 @@
-import sqlite3
 import pandas as pd
+import pymysql
 
-conn = sqlite3.connect("meu_banco.db")
+conn = pymysql.connect(
+    host='localhost',
+    user='root',
+    password='123456',
+    database='airbnb'
+)
 
-def filter_nota(nota, db_path):
-    conn = sqlite3.connect(db_path)
+def feed_query(conn):
+    df = pd.read_sql(""" 
+        SELECT 
+            H.nome AS host, 
+            L.Rua AS local, 
+            P.NotaReviews AS nota, 
+            P.Preco AS preço, 
+            P.Imagem AS imagem_casa,
+            P.ID_Postagem  -- Inclui o ID_Postagem para realizar o filtro depois
+        FROM 
+            Postagem AS P
+        JOIN 
+            host_ AS H ON P.ID_Host = H.ID_Host
+        JOIN 
+            residencia AS R ON P.ID_Postagem = R.ID_Postagem
+        JOIN 
+            local_ AS L ON R.ID_Residencia = L.ID_Residencia
+    """, conn)
 
-    query = f"SELECT * FROM minha_tabela WHERE nota > {nota}"
-
-    df = pd.read_sql_query(query, conn)
-    
     return df
 
-def filter_local(local, db_path):
-    conn = sqlite3.connect(db_path)
 
-    query = f"SELECT * FROM minha_tabela WHERE local LIKE %{local}%"
+def filter_nota(nota, conn):
+    query_ids = f"""
+    SELECT P.ID_Postagem
+    FROM Postagem AS P
+    WHERE P.NotaReviews > {nota}
+    """
+    ids_filtrados = pd.read_sql_query(query_ids, conn)
+    return ids_filtrados
 
-    df = pd.read_sql_query(query, conn)
-    
-    return df
+def filter_preco(preco, conn):
+    query_ids = f"""
+    SELECT P.ID_Postagem
+    FROM Postagem AS P
+    WHERE P.Preco < {preco}
+    """
+    ids_filtrados = pd.read_sql_query(query_ids, conn)
+    return ids_filtrados
+
 
 '''
 def prop_por_hosts():
@@ -32,5 +60,3 @@ def preco_():
 
 def hosts_todas_maior_que_95():
 '''
-
-
