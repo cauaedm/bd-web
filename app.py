@@ -156,49 +156,68 @@ elif tab == "Analytics":
 
     # Exemplo de conteúdo na aba de Analytics
     st.subheader("Aqui vai ser a aba com as 5 consultas que a gente já tem")
+    col1, col2 = st.columns(2)
 
-    # Consulta para obter o número de propriedades por host
-    view1 = prop_por_hosts(conn)
-    st.subheader("Ranking dos Hosts")
-    st.dataframe(view1)
+    with col1:
+        # Consulta para obter o número de propriedades por host
+        view1 = prop_por_hosts(conn)
+        st.subheader("Ranking dos Hosts")
+        st.dataframe(view1)
 
-    view2 = reviews_por_post(conn)
-    st.subheader("Review por Post")
-    st.dataframe(view2)
+    with col2:
+        view2 = reviews_por_post(conn)
+        st.subheader("Review por Post")
+        st.dataframe(view2)
 
     view3 = preco_local_comodidade(conn)
-    st.subheader("Preco Local Comodidade")
+    st.subheader("Preço, Local e Comodidade")
     st.dataframe(view3)
 
+    # Gráfico: Preço por Cidade (Boxplot)
+    st.subheader("Distribuição de Preços por Cidade")
+    fig_boxplot_cidade = px.box(view3, x='Cidade', y='Preco', 
+                                title='Distribuição de Preços por Cidade',
+                                labels={'Cidade': 'Cidade', 'Preco': 'Preço (USD)'}, 
+                                color='Cidade', points='all')
+    st.plotly_chart(fig_boxplot_cidade)
 
     # Criando um layout de 2 colunas para os gráficos
     col1, col2 = st.columns(2)
 
     with col1:
-        # Gráfico: Número de propriedades por host (barra horizontal)
-        st.subheader("Número de Propriedades por Host")
-        fig = px.bar(df, x='Numero_De_Propriedades', y='Nome_Host', 
-                    orientation='h', title='Número de Propriedades por Host')
-        st.plotly_chart(fig)
+        # Gráfico: Número de reviews por postagem
+        st.subheader("Número de Reviews por Postagem")
+        fig_reviews = px.bar(view2, x='Nome_Postagem', y='Numero_De_Reviews',
+                             title='Número de Reviews por Postagem',
+                             labels={'Nome_Postagem': 'Postagem', 'Numero_De_Reviews': 'Número de Reviews'})
+        st.plotly_chart(fig_reviews)
 
     with col2:
-        # Gráfico: Distribuição de Propriedades por Host (dispersão)
-        st.subheader("Distribuição das Propriedades por Host")
-        fig2 = px.scatter(df, x='Nome_Host', y='Numero_De_Propriedades', 
-                        title='Distribuição das Propriedades por Host', 
-                        labels={'Nome_Host': 'Nome do Host', 'Numero_De_Propriedades': 'Número de Propriedades'})
-        st.plotly_chart(fig2)
+        # Gráfico: Preço por Cidade
+        st.subheader("Preço por Cidade")
+        fig_preco_cidade = px.scatter(view3, x='Cidade', y='Preco',
+                                      title='Preço por Cidade',
+                                      labels={'Cidade': 'Cidade', 'Preco': 'Preço (USD)'},
+                                      color='Tipo_Propriedade', hover_data=['Comodidades'])
+        st.plotly_chart(fig_preco_cidade)
 
-    # Filtro para selecionar um host
-    host_selecao = st.selectbox("Selecione um Host", df['Nome_Host'].unique().tolist())
+    # Adicionando um terceiro gráfico de distribuição de preços
+    st.subheader("Distribuição de Preços das Postagens")
+    fig_preco_dist = px.histogram(view3, x='Preco', nbins=20,
+                                  title='Distribuição de Preços',
+                                  labels={'Preco': 'Preço (USD)'})
+    st.plotly_chart(fig_preco_dist)
 
-    # Filtro dos dados baseado na seleção do host
-    filtered_df = df[df['Nome_Host'] == host_selecao]
+    # Filtro para selecionar uma cidade
+    cidade_selecao = st.selectbox("Selecione uma Cidade", view3['Cidade'].unique().tolist())
 
-    # Exibindo dados do host selecionado
-    if not filtered_df.empty:
-        st.subheader(f"Detalhes para o Host: {host_selecao}")
-        st.dataframe(filtered_df)
+    # Filtro dos dados baseado na seleção da cidade
+    filtered_view3 = view3[view3['Cidade'] == cidade_selecao]
+
+    # Exibindo dados da cidade selecionada
+    if not filtered_view3.empty:
+        st.subheader(f"Detalhes para a Cidade: {cidade_selecao}")
+        st.dataframe(filtered_view3)
     else:
-        st.write("Nenhum dado encontrado para o Host selecionado.")
+        st.write("Nenhum dado encontrado para a Cidade selecionada.")
 

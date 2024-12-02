@@ -93,7 +93,7 @@ def filtrar_local(latitude, longitude, conn):
 def reviews_por_post(conn):
     query = '''SELECT 
         p.Nome AS Nome_Postagem,
-        COUNT(r.ID_Review) AS Numero_De_Reviews
+        COUNT(a.ID_Review) AS Numero_De_Reviews
     FROM 
         Postagem as p
     LEFT JOIN 
@@ -105,7 +105,7 @@ def reviews_por_post(conn):
     return view
 
 
-def preco_local_comodidade():
+def preco_local_comodidade(conn):
     query = '''
     SELECT 
         p.ID_Postagem AS ID_Postagem,
