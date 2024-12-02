@@ -7,11 +7,7 @@ import plotly.express as px
 import folium
 from streamlit_folium import st_folium
 
-from consultas import filter_nota
-from consultas import feed_query
-from consultas import filter_preco
-from consultas import prop_por_hosts
-from consultas import filtrar_local
+from consultas import *
 
 st.set_page_config(
     page_title="Goats do BD",
@@ -42,6 +38,13 @@ if tab == "Feed":
     # Filtros de pesquisa
     st.subheader("Filtrar Publicações")
 
+    if "last_clicked" not in st.session_state:
+        st.session_state["last_clicked"] = None
+
+    def button_clicked(button_name):
+        st.session_state["last_clicked"] = button_name
+
+    
     # Filtro para nota
     nota_filter = st.slider("Escolha a nota mínima", 0.0, 100.0, 0.0)
     
@@ -50,29 +53,32 @@ if tab == "Feed":
 
     # Filtro para preço
     preco_filter = st.slider("Escolha o preço máximo", preco_min, preco_max, preco_max)
-
-
-    # Criar o mapa interativo de Boston
-    boston_map = folium.Map(location=[42.308103483524164, -71.11291662888864], zoom_start=12)  # Boston latitude e longitude
-
-    # Exibir o mapa interativo e capturar a localização clicada
-    mapa_interativo = st_folium(boston_map, width=1500, height=500)
-
-    # Filtrando o DataFrame com base nos filtros
     filtered_df = df
-    
 
-    if mapa_interativo.get('last_clicked'):
-        latitude = mapa_interativo['last_clicked']['lat']
-        longitude = mapa_interativo['last_clicked']['lng']
-        
-        # Mostrar as coordenadas no Streamlit
-        st.write(f"Coordenadas selecionadas: Latitude: {latitude}, Longitude: {longitude}")
 
-        # Usar essas coordenadas para filtrar as publicações
-        ids_filtrados_local = filtrar_local(latitude, longitude, conn)
-        filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_local['ID_Postagem'])]
+    if st.button("Filtrar por regiao") or (st.session_state["last_clicked"] == "Filtrar por regiao"):
+        button_clicked(button_name="Filtrar por regiao")
+
+        # Criar o mapa interativo de Boston
+        boston_map = folium.Map(location=[42.308103483524164, -71.11291662888864], zoom_start=12)  # Boston latitude e longitude
+
+        # Exibir o mapa interativo e capturar a localização clicada
+        mapa_interativo = st_folium(boston_map, width=1500, height=500)
+
+
+        if mapa_interativo.get('last_clicked'):
+            button_clicked(button_name="Mapa iterativo")
+
+            latitude = mapa_interativo['last_clicked']['lat']
+            longitude = mapa_interativo['last_clicked']['lng']
             
+            # Mostrar as coordenadas no Streamlit
+            st.write(f"Coordenadas selecionadas: Latitude: {latitude}, Longitude: {longitude}")
+
+            # Usar essas coordenadas para filtrar as publicações
+            ids_filtrados_local = filtrar_local(latitude, longitude, conn)
+            filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_local['ID_Postagem'])]
+                
 
     # Se a nota for maior que 0, usamos o filter_nota para pegar os IDs filtrados
     if nota_filter > 0.0:
@@ -152,11 +158,18 @@ elif tab == "Analytics":
     st.subheader("Aqui vai ser a aba com as 5 consultas que a gente já tem")
 
     # Consulta para obter o número de propriedades por host
-    df = prop_por_hosts(conn)
+    view1 = prop_por_hosts(conn)
+    st.subheader("Ranking dos Hosts")
+    st.dataframe(view1)
 
-    # Exibir a tabela de resultados
-    st.subheader("Tabela de Propriedades por Host")
-    st.dataframe(df)
+    view2 = reviews_por_post(conn)
+    st.subheader("Review por Post")
+    st.dataframe(view2)
+
+    view3 = preco_local_comodidade(conn)
+    st.subheader("Preco Local Comodidade")
+    st.dataframe(view3)
+
 
     # Criando um layout de 2 colunas para os gráficos
     col1, col2 = st.columns(2)

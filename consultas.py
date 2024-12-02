@@ -34,7 +34,7 @@ def filter_nota(nota, conn):
     query_ids = f"""
     SELECT P.ID_Postagem
     FROM Postagem AS P
-    WHERE P.NotaReviews > {nota}
+    WHERE P.NotaReviews >= {nota}
     """
     ids_filtrados = pd.read_sql_query(query_ids, conn)
     return ids_filtrados
@@ -43,7 +43,7 @@ def filter_preco(preco, conn):
     query_ids = f"""
     SELECT P.ID_Postagem
     FROM Postagem AS P
-    WHERE P.Preco < {preco}
+    WHERE P.Preco <= {preco}
     """
     ids_filtrados = pd.read_sql_query(query_ids, conn)
     return ids_filtrados
@@ -90,12 +90,39 @@ def filtrar_local(latitude, longitude, conn):
     ids_filtrados = pd.read_sql_query(query_ids, conn)
     return ids_filtrados
 
-'''
-def review_por_postagem():
+def reviews_por_post(conn):
+    query = '''SELECT 
+        p.Nome AS Nome_Postagem,
+        COUNT(r.ID_Review) AS Numero_De_Reviews
+    FROM 
+        Postagem as p
+    LEFT JOIN 
+        Avalia as a on p.ID_Postagem = a.ID_Postagem
+    GROUP BY p.ID_Postagem, p.Nome
+    ORDER BY Numero_De_Reviews DESC;'''
+    
+    view = pd.read_sql_query(query, conn)
+    return view
+
 
 def preco_local_comodidade():
-
-def preco_():
-
-def hosts_todas_maior_que_95():
-'''
+    query = '''
+    SELECT 
+        p.ID_Postagem AS ID_Postagem,
+        p.Preco AS Preco,
+        r.TipoDePropriedade AS Tipo_Propriedade,
+        r.Comodidades AS Comodidades,
+        l.Cidade AS Cidade,
+        l.Rua AS Rua
+    FROM 
+        Postagem p
+    JOIN 
+        Residencia r ON p.ID_Postagem = r.ID_Postagem
+    JOIN 
+        Local_ l ON r.ID_Residencia = l.ID_Residencia
+    ORDER BY 
+        p.ID_Postagem;
+    '''
+    
+    view = pd.read_sql_query(query, conn)
+    return view
