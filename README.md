@@ -97,16 +97,6 @@ O site estará disponível no navegador em: `http://localhost:8501`
 
 ---
 
-## **Capturas de Tela**  
-
-### Página Inicial  
-![Página Inicial](assets/home_page.png)  
-
-### Visualização de Propriedades  
-![Visualização](assets/property_view.png)  
-
----
-
 ## **Contribuições**  
 Contribuições são bem-vindas! Siga os passos abaixo para colaborar:  
 1. Faça um fork do projeto.  
