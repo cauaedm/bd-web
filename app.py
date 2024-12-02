@@ -1,10 +1,25 @@
 import pandas as pd
 import streamlit as st
 import pymysql
+import altair as alt
+import plotly.express as px
+
+import folium
+from streamlit_folium import st_folium
 
 from consultas import filter_nota
 from consultas import feed_query
 from consultas import filter_preco
+from consultas import prop_por_hosts
+from consultas import filtrar_local
+
+st.set_page_config(
+    page_title="Goats do BD",
+    page_icon="🏠",
+    layout="wide",
+    initial_sidebar_state="expanded")
+
+alt.themes.enable("dark")
 
 # Conexão com o banco de dados
 conn = pymysql.connect(
@@ -27,11 +42,8 @@ if tab == "Feed":
     # Filtros de pesquisa
     st.subheader("Filtrar Publicações")
 
-    # Filtro para local
-    local_filter = st.selectbox("Escolha um local", ["Todos"] + df['local'].unique().tolist())
-
     # Filtro para nota
-    nota_filter = st.slider("Escolha a nota mínima", 0.0, 5.0, 0.0)
+    nota_filter = st.slider("Escolha a nota mínima", 0.0, 100.0, 0.0)
     
     preco_min = float(df['preço'].min())
     preco_max = float(df['preço'].max())
@@ -40,11 +52,27 @@ if tab == "Feed":
     preco_filter = st.slider("Escolha o preço máximo", preco_min, preco_max, preco_max)
 
 
+    # Criar o mapa interativo de Boston
+    boston_map = folium.Map(location=[42.308103483524164, -71.11291662888864], zoom_start=12)  # Boston latitude e longitude
+
+    # Exibir o mapa interativo e capturar a localização clicada
+    mapa_interativo = st_folium(boston_map, width=1500, height=500)
+
     # Filtrando o DataFrame com base nos filtros
     filtered_df = df
     
-    if local_filter != "Todos":
-        filtered_df = filtered_df[filtered_df['local'] == local_filter]
+
+    if mapa_interativo.get('last_clicked'):
+        latitude = mapa_interativo['last_clicked']['lat']
+        longitude = mapa_interativo['last_clicked']['lng']
+        
+        # Mostrar as coordenadas no Streamlit
+        st.write(f"Coordenadas selecionadas: Latitude: {latitude}, Longitude: {longitude}")
+
+        # Usar essas coordenadas para filtrar as publicações
+        ids_filtrados_local = filtrar_local(latitude, longitude, conn)
+        filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_local['ID_Postagem'])]
+            
 
     # Se a nota for maior que 0, usamos o filter_nota para pegar os IDs filtrados
     if nota_filter > 0.0:
@@ -71,11 +99,6 @@ if tab == "Feed":
             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
             color: white;
             font-family: Arial, sans-serif;
-        }
-        .div-box img.host-img {
-            max-width: 80px;
-            border-radius: 50%;
-            margin-right: 20px;
         }
         .info {
             flex: 1;
@@ -125,11 +148,44 @@ if tab == "Feed":
 elif tab == "Analytics":
     st.title("Analytics")
 
-    # Exemplo de conteúdo na aba de Analytics (gráfico, resumo, etc.)
+    # Exemplo de conteúdo na aba de Analytics
     st.subheader("Aqui vai ser a aba com as 5 consultas que a gente já tem")
-    
-    # Gráfico simples de notas usando Streamlit
-    st.bar_chart(df['nota'])
 
-    st.subheader("Resumo dos Preços")
-    st.write(df['preço'].value_counts())
+    # Consulta para obter o número de propriedades por host
+    df = prop_por_hosts(conn)
+
+    # Exibir a tabela de resultados
+    st.subheader("Tabela de Propriedades por Host")
+    st.dataframe(df)
+
+    # Criando um layout de 2 colunas para os gráficos
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Gráfico: Número de propriedades por host (barra horizontal)
+        st.subheader("Número de Propriedades por Host")
+        fig = px.bar(df, x='Numero_De_Propriedades', y='Nome_Host', 
+                    orientation='h', title='Número de Propriedades por Host')
+        st.plotly_chart(fig)
+
+    with col2:
+        # Gráfico: Distribuição de Propriedades por Host (dispersão)
+        st.subheader("Distribuição das Propriedades por Host")
+        fig2 = px.scatter(df, x='Nome_Host', y='Numero_De_Propriedades', 
+                        title='Distribuição das Propriedades por Host', 
+                        labels={'Nome_Host': 'Nome do Host', 'Numero_De_Propriedades': 'Número de Propriedades'})
+        st.plotly_chart(fig2)
+
+    # Filtro para selecionar um host
+    host_selecao = st.selectbox("Selecione um Host", df['Nome_Host'].unique().tolist())
+
+    # Filtro dos dados baseado na seleção do host
+    filtered_df = df[df['Nome_Host'] == host_selecao]
+
+    # Exibindo dados do host selecionado
+    if not filtered_df.empty:
+        st.subheader(f"Detalhes para o Host: {host_selecao}")
+        st.dataframe(filtered_df)
+    else:
+        st.write("Nenhum dado encontrado para o Host selecionado.")
+
