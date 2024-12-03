@@ -37,13 +37,6 @@ if tab == "Feed":
 
     # Filtros de pesquisa
     st.subheader("Filtrar Publicações")
-
-    if "last_clicked" not in st.session_state:
-        st.session_state["last_clicked"] = None
-
-    def button_clicked(button_name):
-        st.session_state["last_clicked"] = button_name
-
     
     # Filtro para nota
     nota_filter = st.slider("Escolha a nota mínima", 0.0, 100.0, 0.0)
@@ -56,29 +49,25 @@ if tab == "Feed":
     filtered_df = df
 
 
-    if st.button("Filtrar por regiao") or (st.session_state["last_clicked"] == "Filtrar por regiao"):
-        button_clicked(button_name="Filtrar por regiao")
+    st.subheader("Filtrar por Região")
 
-        # Criar o mapa interativo de Boston
-        boston_map = folium.Map(location=[42.308103483524164, -71.11291662888864], zoom_start=12)  # Boston latitude e longitude
+    # Criar o mapa interativo de Boston
+    boston_map = folium.Map(location=[42.308103483524164, -71.11291662888864], zoom_start=12)  # Boston latitude e longitude
 
-        # Exibir o mapa interativo e capturar a localização clicada
-        mapa_interativo = st_folium(boston_map, width=1500, height=500)
+    # Exibir o mapa interativo e capturar a localização clicada
+    mapa_interativo = st_folium(boston_map, width=1500, height=500)
 
+    if mapa_interativo.get('last_clicked'):
+        latitude = mapa_interativo['last_clicked']['lat']
+        longitude = mapa_interativo['last_clicked']['lng']
+        
+        # Mostrar as coordenadas no Streamlit
+        st.write(f"Coordenadas selecionadas: Latitude: {latitude}, Longitude: {longitude}")
 
-        if mapa_interativo.get('last_clicked'):
-            button_clicked(button_name="Mapa iterativo")
-
-            latitude = mapa_interativo['last_clicked']['lat']
-            longitude = mapa_interativo['last_clicked']['lng']
+        # Usar essas coordenadas para filtrar as publicações
+        ids_filtrados_local = filtrar_local(latitude, longitude, conn)
+        filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_local['ID_Postagem'])]
             
-            # Mostrar as coordenadas no Streamlit
-            st.write(f"Coordenadas selecionadas: Latitude: {latitude}, Longitude: {longitude}")
-
-            # Usar essas coordenadas para filtrar as publicações
-            ids_filtrados_local = filtrar_local(latitude, longitude, conn)
-            filtered_df = filtered_df[filtered_df['ID_Postagem'].isin(ids_filtrados_local['ID_Postagem'])]
-                
 
     # Se a nota for maior que 0, usamos o filter_nota para pegar os IDs filtrados
     if nota_filter > 0.0:
@@ -152,10 +141,39 @@ if tab == "Feed":
 
 # Aba Analytics
 elif tab == "Analytics":
+    df = feed_query(conn)
+
     st.title("Analytics")
 
     # Exemplo de conteúdo na aba de Analytics
-    st.subheader("Aqui vai ser a aba com as 5 consultas que a gente já tem")
+    st.subheader("A análise de métricas e visualizações")
+    col11, col12, col13, col14 = st.columns(4)
+
+    with col11:
+        # Exemplo com mudança percentual
+        st.metric(
+            label="Média de Preços das Postagens", 
+            value=f"R$ {df['preço'].mean():,.2f}", 
+        )
+    with col12:
+        st.metric(
+            label="Média de Notas das Postagens", 
+            value=f"{df['nota'].mean():,.2f}", 
+        )
+    
+    with col13:
+        st.metric(
+            label="Quantidade Total de Hosts Únicos", 
+            value=f"{df['host'].drop_duplicates().count():,.0f}",  # Contando hosts únicos
+        )
+
+
+    with col14:
+        st.metric(
+            label="Quantidade de Postagens", 
+            value=f"{df['ID_Postagem'].count():,.0f}", 
+        )
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -165,6 +183,7 @@ elif tab == "Analytics":
         st.dataframe(view1)
 
     with col2:
+
         view2 = reviews_por_post(conn)
         st.subheader("Review por Post")
         st.dataframe(view2)
@@ -172,6 +191,16 @@ elif tab == "Analytics":
     view3 = preco_local_comodidade(conn)
     st.subheader("Preço, Local e Comodidade")
     st.dataframe(view3)
+
+    with col1:
+        view4 = comodo_media(conn)
+        st.subheader("Postagens Maiores que a Média de Banheiros e Quartos")
+        st.dataframe(view4)
+
+    with col2:
+        view5 = host_95(conn)
+        st.subheader("Hosts com Todas as publicações com nota superior à 95")
+        st.dataframe(view5)
 
     # Gráfico: Preço por Cidade (Boxplot)
     st.subheader("Distribuição de Preços por Cidade")
@@ -201,6 +230,23 @@ elif tab == "Analytics":
                                       color='Tipo_Propriedade', hover_data=['Comodidades'])
         st.plotly_chart(fig_preco_cidade)
 
+    # Consulta para obter o número de propriedades por host
+    view4 = comodo_media(conn)
+    # Criar o gráfico 3D
+    fig = px.scatter_3d(
+        view4, 
+        x='Banheiros', 
+        y='Quartos', 
+        z='Preco', 
+        color='Preco',  # Colore os pontos com base no preço
+        title="Relação entre Banheiros, Quartos e Preço",
+        labels={'Banheiros': 'Número de Banheiros', 
+                'Quartos': 'Número de Quartos', 
+                'Preco': 'Preço'}
+    )
+    
+    # Exibir o gráfico
+    st.plotly_chart(fig)
     # Adicionando um terceiro gráfico de distribuição de preços
     st.subheader("Distribuição de Preços das Postagens")
     fig_preco_dist = px.histogram(view3, x='Preco', nbins=20,

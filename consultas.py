@@ -126,3 +126,52 @@ def preco_local_comodidade(conn):
     
     view = pd.read_sql_query(query, conn)
     return view
+
+def comodo_media(conn):
+
+    '''
+    Mostrar preços e quantidade de quartos e banheiros de postagens sobre residências que possuem mais banheiros e quartos que a média.
+    (SUBCONSULTA ANINHADA)
+    '''
+
+    query = '''
+    SELECT 
+        p.ID_Postagem, 
+        p.Preco,
+        r.Quartos,
+        r.Banheiros 
+    FROM 
+        Postagem p 
+    JOIN 
+        Residencia r ON p.ID_Postagem = r.ID_Postagem 
+    WHERE 
+        r.Quartos > (SELECT AVG(r2.Quartos) FROM Residencia r2) AND 
+        r.Banheiros > (SELECT AVG(r2.Banheiros) FROM Residencia r2);
+    '''
+    
+    view = pd.read_sql_query(query, conn)
+    return view
+
+def host_95(conn):
+    '''
+    Consultar Hosts com todas as postagens possuindo nota maior que 95 (SUBCONSULTA ANINHADA)
+    '''
+
+    query = '''
+    SELECT
+        h.ID_Host,
+        h.Nome 
+    FROM 
+        Host_ h 
+    WHERE NOT EXISTS (
+            SELECT 1 
+            FROM 
+                Postagem p 
+            JOIN 
+                Host_ h2 ON p.ID_Host = h2.ID_Host 
+            WHERE 
+                h2.ID_Host = h.ID_Host AND p.NotaReviews <= 95 );
+    '''
+    
+    view = pd.read_sql_query(query, conn)
+    return view
